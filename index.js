@@ -23,7 +23,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", //frontend ka url
+        // origin: "http://localhost:5173", 
+        origin: "https://bite-buddy-frontend-mu.vercel.app/",
         credentials: true, //allow cookies to be sent in cross-origin requests
         methods: ['POST', 'GET']
     }
