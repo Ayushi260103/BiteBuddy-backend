@@ -23,19 +23,24 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        // origin: "http://localhost:5173", 
-        origin: "https://bite-buddy-frontend-mu.vercel.app/",
+        origin: [
+            "http://localhost:5173",
+            "https://bite-buddy-frontend-mu.vercel.app"
+        ],
         credentials: true, //allow cookies to be sent in cross-origin requests
         methods: ['POST', 'GET']
     }
 })
-app.set("io",io);  //now it can be used anywhere
+app.set("io", io);  //now it can be used anywhere
 
 
 const port = process.env.PORT || 5000;
 //connect backend to frontend using cors middleware, it allows cross-origin requests from the frontend to the backend, we need to specify the origin of the frontend and allow credentials to be sent in cross-origin requests
 app.use(cors({
-    origin: "http://localhost:5173", //frontend ka url
+    origin: [
+        "http://localhost:5173",
+        "https://bite-buddy-frontend-mu.vercel.app"
+    ],
     credentials: true //allow cookies to be sent in cross-origin requests
 }))
 
