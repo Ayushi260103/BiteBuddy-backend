@@ -613,8 +613,13 @@ export const sendDeliveryOtp = async (req, res) => {
 
         await order.save();
 
-        await sendDeliveryOtpEmail(order.userId.email, otp);
+        // respond first so frontend does not stay loading if SMTP is slow
         res.status(200).json({ message: `Delivery OTP sent successfully to ${order?.userId?.fullName}` });
+
+        // send email in background
+        sendDeliveryOtpEmail(order.userId.email, otp).catch((mailError) => {
+            console.error("Delivery OTP email failed:", mailError?.message || mailError);
+        });
     }
     catch (error) {
         return res.status(500).json({ message: "Delivery OTP not send", error: error.message });

@@ -10,6 +10,9 @@ const transporter = nodemailer.createTransport({
 host: "smtp.gmail.com",
   port: 465,
   secure: true, // Use true for port 465, false for port 587
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
   auth: {
     user: process.env.EMAIL, // Your email address
     pass: process.env.APP_PASSWORD // Your email password or app password,
