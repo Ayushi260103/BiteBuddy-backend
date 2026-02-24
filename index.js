@@ -18,7 +18,7 @@ import { socketHandler } from "./socket.js";
 
 
 const app = express();
-
+app.set("trust proxy", 1);
 // for socket io
 const server = http.createServer(app);
 const io = new Server(server, {
