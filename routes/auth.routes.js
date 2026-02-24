@@ -10,6 +10,8 @@ authRouter.post("/send-otp",sendOtp);
 authRouter.post("/verify-otp", verifyOtp);
 authRouter.post("/reset-password", resetPassword);
 authRouter.post("/google-auth",googleAuth);
-
+authRouter.get("/test", (req, res) => {
+    res.send("Auth route working ✅");
+});
 
 export default authRouter;
