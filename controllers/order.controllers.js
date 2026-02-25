@@ -502,6 +502,7 @@ export const acceptOrderAssignment = async (req, res) => {
         await order.save();
         await order.populate("shopOrders.assignedDeliveryBoy", "fullName email mobile");
         await order.populate("shopOrders.owner", "socketId");
+        await order.populate("shopOrders.shopOrderItems", "name quantity");
         await order.populate("userId", "socketId");
 
         const updatedShopOrder = order.shopOrders.find(
@@ -547,7 +548,10 @@ export const getCurrentOrder = async (req, res) => {
             .populate("assignedTo", "fullName email mobile location")
             .populate({
                 path: "order",    //order ke andar user ko populate kra
-                populate: [{ path: "userId", select: "fullName email location mobile" }]
+                populate: [
+                    { path: "userId", select: "fullName email location mobile" },
+                    { path: "shopOrders.shopOrderItems", select: "name quantity" }
+                ]
 
             })
 
