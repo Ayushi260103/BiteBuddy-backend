@@ -234,9 +234,18 @@ export const updateOrderStatus = async (req, res) => {
     try {
         const { orderId, shopId } = req.params;
         const { status } = req.body;
+        const requester = await User.findById(req.userId).select("role");
+        if (!requester || requester.role !== "owner") {
+            return res.status(403).json({ message: "only shop owners can update order status" });
+        }
+
         const order = await Order.findById(orderId);
+        if (!order) return res.status(400).json({ message: "order not found" });
         const shopOrder = order.shopOrders.find(odr => odr.shop == shopId)
         if (!shopOrder) return res.status(400).json({ message: 'shop order not found' });
+        if (String(shopOrder.owner) !== String(req.userId)) {
+            return res.status(403).json({ message: "not allowed to update this shop order" });
+        }
 
         shopOrder.status = status;
 
@@ -449,10 +458,21 @@ export const getDeliveryBoyAssignment = async (req, res) => {
 export const acceptOrderAssignment = async (req, res) => {
     try {
         const { assignmentId } = req.params;
+        const requester = await User.findById(req.userId).select("role");
+        if (!requester || requester.role !== "deliveryBoy") {
+            return res.status(403).json({ message: "only delivery partners can accept assignments" });
+        }
+
         const assignment = await DeliveryAssignment.findById(assignmentId);
 
         if (!assignment) return res.status(400).json({ message: "assignment not found" });
         if (assignment.status != "broadcasted") return res.status(400).json({ message: "assignment is expired" });
+        const isBroadcastedToUser = assignment.broadcastedTo.some(
+            id => String(id) === String(req.userId)
+        );
+        if (!isBroadcastedToUser) {
+            return res.status(403).json({ message: "assignment is not available for this delivery partner" });
+        }
 
 
         //if delivery boy is already delivering an order which is not yet delivered
@@ -572,7 +592,28 @@ export const getCurrentOrder = async (req, res) => {
 export const getOrderById = async (req, res) => {
     try {
         const { orderId } = req.params;
-        const order = await Order.findById(orderId)
+
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(400).json({ message: "order not found" });
+
+        const requesterId = String(req.userId);
+        const normalizeId = (value) => {
+            if (!value) return null;
+            if (typeof value === "object" && value._id) return String(value._id);
+            return String(value);
+        };
+
+        const isCustomer = normalizeId(order.userId) === requesterId;
+        const isOwnerForOrder = order.shopOrders.some((so) => normalizeId(so?.owner) === requesterId);
+        const isAssignedDeliveryBoy = order.shopOrders.some(
+            (so) => normalizeId(so?.assignedDeliveryBoy) === requesterId
+        );
+
+        if (!isCustomer && !isOwnerForOrder && !isAssignedDeliveryBoy) {
+            return res.status(403).json({ message: "not allowed to view this order" });
+        }
+
+        const populatedOrder = await Order.findById(orderId)
             .populate("userId")
             .populate({
                 path: "shopOrders.shop",
@@ -588,9 +629,19 @@ export const getOrderById = async (req, res) => {
             }).lean()
 
 
-        if (!order) return res.status(400).json({ message: "order not found" });
+        if (!isCustomer) {
+            populatedOrder.shopOrders = populatedOrder.shopOrders.filter((shopOrder) => {
+                if (isOwnerForOrder && normalizeId(shopOrder?.owner) === requesterId) {
+                    return true;
+                }
+                if (isAssignedDeliveryBoy && normalizeId(shopOrder?.assignedDeliveryBoy) === requesterId) {
+                    return true;
+                }
+                return false;
+            });
+        }
 
-        return res.status(200).json(order);
+        return res.status(200).json(populatedOrder);
 
     } catch (error) {
         return res.status(500).json({ message: "get order by id error", error: error.message });
