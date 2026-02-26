@@ -657,36 +657,44 @@ export const sendDeliveryOtp = async (req, res) => {
         const { orderId, shopOrderId } = req.body;
 
         const order = await Order.findById(orderId).populate("userId");
-        if (!order) return res.status(400).json({ message: "enter valid order id" });
+        if (!order) {
+            return res.status(400).json({ mailSent: false, message: "Invalid order ID" });
+        }
+
         const shopOrder = order.shopOrders.id(shopOrderId);
-        if (!shopOrder) return res.status(400).json({ message: "enter valid shopOrder id" });
-        if (!order?.userId?.email) return res.status(400).json({ message: "customer email not found" });
+        if (!shopOrder) {
+            return res.status(400).json({ mailSent: false, message: "Invalid shopOrder ID" });
+        }
+
+        if (!order?.userId?.email) {
+            return res.status(400).json({ mailSent: false, message: "Customer email not found" });
+        }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        shopOrder.deliveryOtp = otp;
-        shopOrder.otpExpires = Date.now() + 5 * 60 * 1000;   //expires after 5 min
 
+        shopOrder.deliveryOtp = otp;
+        shopOrder.otpExpires = Date.now() + 5 * 60 * 1000;
         await order.save();
 
-        try {
-            await sendDeliveryOtpEmail(order.userId.email, otp);
-            return res.status(200).json({
-                mailSent: true,
-                message: `Delivery OTP sent successfully to ${order?.userId?.fullName}`
-            });
-        } catch (mailError) {
-            console.error("Delivery OTP email failed:", mailError?.message || mailError);
-            return res.status(502).json({
-                mailSent: false,
-                message: "OTP generated but email delivery failed",
-                error: mailError?.message || "Email provider error"
-            });
-        }
+        // 🔑 THIS IS THE KEY LINE
+        const mailSent = await sendDeliveryOtpEmail(order.userId.email, otp);
+
+        return res.status(200).json({
+            mailSent,
+            message: mailSent
+                ? `Delivery OTP sent successfully to ${order.userId.fullName}`
+                : "OTP generated but email delivery failed",
+        });
+
+    } catch (error) {
+        console.error("sendDeliveryOtp failed:", error);
+        return res.status(500).json({
+            mailSent: false,
+            message: "Internal server error",
+        });
     }
-    catch (error) {
-        return res.status(500).json({ message: "Delivery OTP not send", error: error.message });
-    }
-}
+};
+
 
 export const verifyDeliveryOtp = async (req, res) => {
     try {
@@ -747,14 +755,14 @@ export const getTodayDeliveries = async (req, res) => {
         todaysDeliveries.forEach(shopOrder => {
             const hour = new Date(shopOrder.deliveredAt).getHours();
             stats[hour] = (stats[hour] || 0) + 1;               //10am -- 2 deliveries
-        }) 
+        })
 
-        let formattedStats = Object.keys(stats).map(hour=>({      // {
+        let formattedStats = Object.keys(stats).map(hour => ({      // {
             hour: parseInt(hour),                                 //      hour: 10,
             count: stats[hour]                                    //      count:2  
         }))                                                       //},
 
-        formattedStats.sort((a,b)=>a.hour-b.hour)    //ascending order
+        formattedStats.sort((a, b) => a.hour - b.hour)    //ascending order
 
         return res.status(200).json(formattedStats);
 
